@@ -28,11 +28,13 @@ export class CommentItem extends vscode.TreeItem {
             ? new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'))
             : new vscode.ThemeIcon('comment', new vscode.ThemeColor('list.warningForeground'));
 
-        this.command = {
-            command: 'vscode.open',
-            title: 'Open in GitHub',
-            arguments: [vscode.Uri.parse(comment.url)],
-        };
+        if (!comment.isResolved) {
+            this.command = {
+                command: 'pr-browser.openCommentSession',
+                title: 'Open in Claude Code',
+                arguments: [this],
+            };
+        }
     }
 }
 
@@ -204,6 +206,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
 
                 return new CommentItem({
                     id: thread.id,
+                    firstCommentId: c.id,
                     title,
                     body: c.body,
                     author: c.author,

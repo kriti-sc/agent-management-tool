@@ -36,6 +36,16 @@ const GRAPHQL_QUERY = `
   }
 `;
 
+const DIFF_HUNK_QUERY = `
+  query($nodeId: ID!) {
+    node(id: $nodeId) {
+      ... on PullRequestReviewComment {
+        diffHunk
+      }
+    }
+  }
+`;
+
 export async function fetchReviewThreads(
     owner: string,
     repo: string,
@@ -86,4 +96,33 @@ export async function fetchReviewThreads(
                 },
             };
         });
+}
+
+export async function fetchDiffHunk(commentNodeId: string, token: string): Promise<string | null> {
+    const response = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            query: DIFF_HUNK_QUERY,
+            variables: { nodeId: commentNodeId },
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`GitHub API error ${response.status}: ${response.statusText}`);
+    }
+
+    const json = await response.json() as {
+        data?: { node?: { diffHunk?: string } };
+        errors?: { message: string }[];
+    };
+
+    if (json.errors?.length) {
+        throw new Error(`GitHub GraphQL: ${json.errors[0].message}`);
+    }
+
+    return json.data?.node?.diffHunk ?? null;
 }

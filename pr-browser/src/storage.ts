@@ -11,6 +11,7 @@ export interface PREntry {
 
 export interface CommentData {
     id: string;
+    firstCommentId: string;
     title: string;
     body: string;
     author: string;
@@ -24,6 +25,7 @@ const KEYS = {
     PRS: 'prs',
     TITLE_CACHE: 'titleCache',
     COMMENT_CACHE: 'commentCache',
+    SESSION_IDS: 'sessionIds',
 } as const;
 
 export class Storage {
@@ -74,5 +76,16 @@ export class Storage {
         const existing = this.state.get<Record<string, CommentData[]>>(KEYS.COMMENT_CACHE, {});
         const { [prId]: _, ...rest } = existing;
         await this.state.update(KEYS.COMMENT_CACHE, rest);
+    }
+
+    // --- Claude Code session IDs (keyed by thread ID) ---
+
+    getSessionId(threadId: string): string | undefined {
+        return this.state.get<Record<string, string>>(KEYS.SESSION_IDS, {})[threadId];
+    }
+
+    async setSessionId(threadId: string, sessionId: string): Promise<void> {
+        const existing = this.state.get<Record<string, string>>(KEYS.SESSION_IDS, {});
+        await this.state.update(KEYS.SESSION_IDS, { ...existing, [threadId]: sessionId });
     }
 }

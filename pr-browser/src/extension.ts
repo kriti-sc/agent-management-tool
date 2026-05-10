@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { PRItem, PRProvider } from './prProvider';
+import { PRItem, CommentItem, PRProvider } from './prProvider';
 import { Storage } from './storage';
+import { openCommentSession } from './claudeSession';
 
 export function activate(context: vscode.ExtensionContext) {
     const storage = new Storage(context.workspaceState);
@@ -25,6 +26,10 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('pr-browser.refreshPR', async (item: PRItem) => {
             await prProvider.refreshPR(item.pr.id);
+        }),
+
+        vscode.commands.registerCommand('pr-browser.openCommentSession', async (item: CommentItem) => {
+            await openCommentSession(item.comment, storage, context.secrets);
         }),
 
         vscode.commands.registerCommand('pr-browser.setGithubToken', async () => {

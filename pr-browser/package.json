@@ -6,7 +6,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -50,6 +52,10 @@
       {
         "command": "pr-browser.setOpenAIToken",
         "title": "PR Browser: Set OpenAI API Key"
+      },
+      {
+        "command": "pr-browser.openCommentSession",
+        "title": "Open in Claude Code"
       }
     ],
     "menus": {
@@ -80,11 +86,12 @@
     "watch": "tsc -watch -p ./"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.138",
     "openai": "^4.77.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
     "typescript": "^5.3.0"
   }
 }
