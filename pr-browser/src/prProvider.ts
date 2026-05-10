@@ -214,6 +214,8 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
                     url: c.url,
                     path: c.path,
                     line: c.line,
+                    threadComments: thread.comments,
+                    threadTooLong: thread.threadTooLong,
                 });
             })
         );

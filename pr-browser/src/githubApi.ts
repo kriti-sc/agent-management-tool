@@ -9,6 +9,8 @@ export interface ReviewThread {
         line: number | null;
         url: string;
     };
+    comments: { author: string; body: string }[];
+    threadTooLong: boolean;
 }
 
 const GRAPHQL_QUERY = `
@@ -19,7 +21,7 @@ const GRAPHQL_QUERY = `
           nodes {
             id
             isResolved
-            comments(first: 1) {
+            comments(first: 6) {
               nodes {
                 id
                 body
@@ -82,7 +84,13 @@ export async function fetchReviewThreads(
     return nodes
         .filter(t => t.comments.nodes.length > 0)
         .map(t => {
-            const c = t.comments.nodes[0];
+            const allNodes = t.comments.nodes as any[];
+            const c = allNodes[0];
+            const threadTooLong = allNodes.length === 6;
+            const comments = allNodes.slice(0, 5).map((n: any) => ({
+                author: (n.author?.login as string) ?? 'ghost',
+                body: n.body as string,
+            }));
             return {
                 id: t.id as string,
                 isResolved: t.isResolved as boolean,
@@ -94,6 +102,8 @@ export async function fetchReviewThreads(
                     line: (c.line as number | null) ?? null,
                     url: c.url as string,
                 },
+                comments,
+                threadTooLong,
             };
         });
 }

@@ -19,6 +19,8 @@ export interface CommentData {
     url: string;
     path: string | null;
     line: number | null;
+    threadComments: { author: string; body: string }[];
+    threadTooLong: boolean;
 }
 
 const KEYS = {
@@ -78,14 +80,14 @@ export class Storage {
         await this.state.update(KEYS.COMMENT_CACHE, rest);
     }
 
-    // --- Claude Code session IDs (keyed by thread ID) ---
+    // --- Claude Code sessions (keyed by thread ID) ---
 
-    getSessionId(threadId: string): string | undefined {
-        return this.state.get<Record<string, string>>(KEYS.SESSION_IDS, {})[threadId];
+    getSessionInfo(threadId: string): { sessionId: string; commentCount: number } | undefined {
+        return this.state.get<Record<string, { sessionId: string; commentCount: number }>>(KEYS.SESSION_IDS, {})[threadId];
     }
 
-    async setSessionId(threadId: string, sessionId: string): Promise<void> {
-        const existing = this.state.get<Record<string, string>>(KEYS.SESSION_IDS, {});
-        await this.state.update(KEYS.SESSION_IDS, { ...existing, [threadId]: sessionId });
+    async setSessionInfo(threadId: string, sessionId: string, commentCount: number): Promise<void> {
+        const existing = this.state.get<Record<string, { sessionId: string; commentCount: number }>>(KEYS.SESSION_IDS, {});
+        await this.state.update(KEYS.SESSION_IDS, { ...existing, [threadId]: { sessionId, commentCount } });
     }
 }
