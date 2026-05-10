@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import { PRItem, PRProvider } from './prProvider';
+import { Storage } from './storage';
 
 export function activate(context: vscode.ExtensionContext) {
-    const prProvider = new PRProvider(context.workspaceState);
+    const storage = new Storage(context.workspaceState);
+    const prProvider = new PRProvider(storage, context.secrets);
 
     vscode.window.registerTreeDataProvider('prList', prProvider);
 
@@ -19,6 +21,34 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('pr-browser.removePR', (item: PRItem) => {
             prProvider.removePR(item.pr.id);
+        }),
+
+        vscode.commands.registerCommand('pr-browser.refreshPR', async (item: PRItem) => {
+            await prProvider.refreshPR(item.pr.id);
+        }),
+
+        vscode.commands.registerCommand('pr-browser.setGithubToken', async () => {
+            const token = await vscode.window.showInputBox({
+                prompt: 'Enter your GitHub Personal Access Token (needs repo scope)',
+                password: true,
+                placeHolder: 'ghp_...',
+            });
+            if (token) {
+                await context.secrets.store('pr-browser.githubToken', token);
+                vscode.window.showInformationMessage('GitHub token saved.');
+            }
+        }),
+
+        vscode.commands.registerCommand('pr-browser.setOpenAIToken', async () => {
+            const key = await vscode.window.showInputBox({
+                prompt: 'Enter your OpenAI API Key',
+                password: true,
+                placeHolder: 'sk-...',
+            });
+            if (key) {
+                await context.secrets.store('pr-browser.openAIToken', key);
+                vscode.window.showInformationMessage('OpenAI API key saved.');
+            }
         })
     );
 }

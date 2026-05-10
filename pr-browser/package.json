@@ -37,6 +37,19 @@
         "command": "pr-browser.removePR",
         "title": "Remove Pull Request",
         "icon": "$(trash)"
+      },
+      {
+        "command": "pr-browser.refreshPR",
+        "title": "Refresh Comments",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pr-browser.setGithubToken",
+        "title": "PR Browser: Set GitHub Token"
+      },
+      {
+        "command": "pr-browser.setOpenAIToken",
+        "title": "PR Browser: Set OpenAI API Key"
       }
     ],
     "menus": {
@@ -49,6 +62,11 @@
       ],
       "view/item/context": [
         {
+          "command": "pr-browser.refreshPR",
+          "when": "view == prList && viewItem == pr",
+          "group": "inline"
+        },
+        {
           "command": "pr-browser.removePR",
           "when": "view == prList && viewItem == pr",
           "group": "inline"
@@ -60,6 +78,9 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "openai": "^4.77.0"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
