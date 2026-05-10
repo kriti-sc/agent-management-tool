@@ -1,0 +1,69 @@
+{
+  "name": "pr-browser",
+  "displayName": "PR Browser",
+  "description": "Browse and review pull request comments",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pr-browser",
+          "title": "PR Browser",
+          "icon": "resources/blob-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "pr-browser": [
+        {
+          "id": "prList",
+          "name": "Pull Requests"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pr-browser.addPR",
+        "title": "Add Pull Request",
+        "icon": "$(add)"
+      },
+      {
+        "command": "pr-browser.removePR",
+        "title": "Remove Pull Request",
+        "icon": "$(trash)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pr-browser.addPR",
+          "when": "view == prList",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pr-browser.removePR",
+          "when": "view == prList && viewItem == pr",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
