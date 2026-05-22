@@ -56,6 +56,11 @@
       {
         "command": "pr-browser.openCommentSession",
         "title": "Open in Claude Code"
+      },
+      {
+        "command": "pr-browser.checkoutPRBranch",
+        "title": "Checkout PR Branch",
+        "icon": "$(git-branch)"
       }
     ],
     "menus": {
@@ -67,6 +72,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "pr-browser.checkoutPRBranch",
+          "when": "view == prList && viewItem == pr",
+          "group": "inline"
+        },
         {
           "command": "pr-browser.refreshPR",
           "when": "view == prList && viewItem == pr",

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { fetchReviewThreads } from './githubApi';
+import { fetchReviewThreads, fetchPRBranch } from './githubApi';
 import { generateCommentTitle } from './openaiApi';
 import { Storage, PREntry, CommentData } from './storage';
 
@@ -59,7 +59,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
         private readonly secrets: vscode.SecretStorage
     ) {}
 
-    addPR(input: string): void {
+    async addPR(input: string): Promise<void> {
         const parsed = this.parsePRInput(input.trim());
         if (!parsed) {
             vscode.window.showErrorMessage(
@@ -76,6 +76,16 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
             return;
         }
 
+        let branch = '';
+        const token = await this.secrets.get('pr-browser.githubToken');
+        if (token) {
+            try {
+                branch = await fetchPRBranch(parsed.owner, parsed.repo, parsed.number, token);
+            } catch (err: any) {
+                console.warn(`[pr-browser] could not fetch branch name: ${err.message}`);
+            }
+        }
+
         const updated = [
             {
                 id,
@@ -84,10 +94,12 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
                 number: parsed.number,
                 url: `https://github.com/${parsed.owner}/${parsed.repo}/pull/${parsed.number}`,
                 addedAt: new Date().toISOString(),
+                branch,
             },
             ...prs,
         ];
-        this.storage.setPRs(updated).then(() => this._onDidChangeTreeData.fire());
+        await this.storage.setPRs(updated);
+        this._onDidChangeTreeData.fire();
     }
 
     removePR(id: string): void {
@@ -216,6 +228,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
                     line: c.line,
                     threadComments: thread.comments,
                     threadTooLong: thread.threadTooLong,
+                    prNumber: pr.number,
                 });
             })
         );

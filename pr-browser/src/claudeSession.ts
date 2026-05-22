@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { CommentData, Storage } from './storage';
 import { fetchDiffHunk } from './githubApi';
+import { slugify, createCommentBranch } from './gitUtils';
 
 async function buildInitialPrompt(comment: CommentData, secrets: vscode.SecretStorage): Promise<string> {
     const lines: string[] = [
@@ -115,6 +116,15 @@ export async function openCommentSession(
             vscode.Uri.parse(`vscode://anthropic.claude-code/open?session=${encodeURIComponent(sessionId)}`)
         );
         return;
+    }
+
+    // Ensure a dedicated branch exists for this comment
+    const commentBranch = `pr-${comment.prNumber}/${slugify(comment.title)}`;
+    try {
+        await createCommentBranch(commentBranch, cwd);
+        console.log(`[pr-browser] checked out branch: ${commentBranch}`);
+    } catch (err: any) {
+        console.warn(`[pr-browser] could not create comment branch: ${err.message}`);
     }
 
     // No session yet — create one

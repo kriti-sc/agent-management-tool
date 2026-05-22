@@ -38,6 +38,16 @@ const GRAPHQL_QUERY = `
   }
 `;
 
+const PR_BRANCH_QUERY = `
+  query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        headRefName
+      }
+    }
+  }
+`;
+
 const DIFF_HUNK_QUERY = `
   query($nodeId: ID!) {
     node(id: $nodeId) {
@@ -106,6 +116,44 @@ export async function fetchReviewThreads(
                 threadTooLong,
             };
         });
+}
+
+export async function fetchPRBranch(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    token: string
+): Promise<string> {
+    const response = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            query: PR_BRANCH_QUERY,
+            variables: { owner, repo, number: prNumber },
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`GitHub API error ${response.status}: ${response.statusText}`);
+    }
+
+    const json = await response.json() as {
+        data?: { repository?: { pullRequest?: { headRefName?: string } } };
+        errors?: { message: string }[];
+    };
+
+    if (json.errors?.length) {
+        throw new Error(`GitHub GraphQL: ${json.errors[0].message}`);
+    }
+
+    const branch = json.data?.repository?.pullRequest?.headRefName;
+    if (!branch) {
+        throw new Error('Could not determine PR branch name');
+    }
+    return branch;
 }
 
 export async function fetchDiffHunk(commentNodeId: string, token: string): Promise<string | null> {

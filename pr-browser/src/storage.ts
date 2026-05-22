@@ -7,6 +7,7 @@ export interface PREntry {
     number: number;
     url: string;
     addedAt: string;
+    branch: string;
 }
 
 export interface CommentData {
@@ -21,6 +22,7 @@ export interface CommentData {
     line: number | null;
     threadComments: { author: string; body: string }[];
     threadTooLong: boolean;
+    prNumber: number;
 }
 
 const KEYS = {
