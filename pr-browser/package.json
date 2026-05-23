@@ -71,6 +71,11 @@
         "command": "pr-browser.resetCommentSession",
         "title": "Reset Claude Session",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "pr-browser.openCommentInBrowser",
+        "title": "Open Comment in Browser",
+        "icon": "$(link-external)"
       }
     ],
     "menus": {
@@ -85,6 +90,11 @@
         {
           "command": "pr-browser.checkoutPRBranch",
           "when": "view == prList && viewItem == pr",
+          "group": "inline"
+        },
+        {
+          "command": "pr-browser.openCommentInBrowser",
+          "when": "view == prList && viewItem == comment || view == prList && viewItem == commentWithSession",
           "group": "inline"
         },
         {

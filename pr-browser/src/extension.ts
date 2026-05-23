@@ -38,6 +38,10 @@ export function activate(context: vscode.ExtensionContext) {
             await openCommentSession(item.comment, storage);
         }),
 
+        vscode.commands.registerCommand('pr-browser.openCommentInBrowser', (item: CommentItem) => {
+            vscode.env.openExternal(vscode.Uri.parse(item.comment.url));
+        }),
+
         vscode.commands.registerCommand('pr-browser.checkoutCommentBranch', async (item: CommentItem) => {
             const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
             const branch = `pr-${item.comment.prNumber}/${slugify(item.comment.title)}`;
