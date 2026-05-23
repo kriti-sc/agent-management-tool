@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { PRItem, CommentItem, PRProvider } from './prProvider';
 import { Storage } from './storage';
 import { openCommentSession } from './claudeSession';
-import { isDirty, checkoutBranch } from './gitUtils';
+import { isDirty, checkoutBranch, createCommentBranch, slugify } from './gitUtils';
 
 export function activate(context: vscode.ExtensionContext) {
     const storage = new Storage(context.workspaceState);
@@ -31,6 +31,26 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('pr-browser.openCommentSession', async (item: CommentItem) => {
             await openCommentSession(item.comment, storage, context.secrets);
+        }),
+
+        vscode.commands.registerCommand('pr-browser.checkoutCommentBranch', async (item: CommentItem) => {
+            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+            const branch = `pr-${item.comment.prNumber}/${slugify(item.comment.title)}`;
+
+            const dirty = await isDirty(cwd);
+            if (dirty) {
+                vscode.window.showErrorMessage(
+                    'You have uncommitted changes. Please commit or stash them before switching to a comment branch.'
+                );
+                return;
+            }
+
+            try {
+                await createCommentBranch(branch, cwd);
+                vscode.window.showInformationMessage(`Switched to branch: ${branch}`);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`Failed to checkout comment branch: ${err.message}`);
+            }
         }),
 
         vscode.commands.registerCommand('pr-browser.checkoutPRBranch', async (item: PRItem) => {

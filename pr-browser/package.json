@@ -61,6 +61,11 @@
         "command": "pr-browser.checkoutPRBranch",
         "title": "Checkout PR Branch",
         "icon": "$(git-branch)"
+      },
+      {
+        "command": "pr-browser.checkoutCommentBranch",
+        "title": "Checkout Comment Branch",
+        "icon": "$(git-branch)"
       }
     ],
     "menus": {
@@ -75,6 +80,11 @@
         {
           "command": "pr-browser.checkoutPRBranch",
           "when": "view == prList && viewItem == pr",
+          "group": "inline"
+        },
+        {
+          "command": "pr-browser.checkoutCommentBranch",
+          "when": "view == prList && viewItem == comment",
           "group": "inline"
         },
         {
