@@ -103,6 +103,8 @@ Used by the context engine to summarize resolved threads. Can be set via command
 
 **Claude Code must be installed and running.** Sessions open via a `vscode://` URI. If the Claude Code extension is not installed, nothing will happen when you click a comment.
 
+**The initial session response is headless — do not close it early.** When a new session opens, Claude runs its first analysis in the background before the session becomes interactive. The response will not stream the way it does when you start a session manually; the panel will appear blank or idle. Wait for Claude to finish before closing or navigating away. Closing too soon interrupts the session mid-run and the work is lost — you would need to reset the session and start over.
+
 **Clicking a resolved thread does nothing.** Resolved threads are intentionally inert — no session opens, no browser link either (only the inline browser button works). This is by design but can be surprising.
 
 **Follow-up prompts block before opening.** When you re-click a thread that has new replies, the extension sends a follow-up to Claude and waits before opening the session. There is no visible progress indicator — the panel just appears frozen for a few seconds.
