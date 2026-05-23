@@ -15,14 +15,14 @@ export class PRItem extends vscode.TreeItem {
 }
 
 export class CommentItem extends vscode.TreeItem {
-    constructor(public readonly comment: CommentData) {
+    constructor(public readonly comment: CommentData, hasSession = false) {
         super(comment.title, vscode.TreeItemCollapsibleState.None);
         this.id = comment.id;
         this.description = comment.path
             ? `${comment.path}${comment.line ? `:${comment.line}` : ''}`
             : `@${comment.author}`;
         this.tooltip = new vscode.MarkdownString(`**@${comment.author}**\n\n${comment.body}`);
-        this.contextValue = 'comment';
+        this.contextValue = hasSession ? 'commentWithSession' : 'comment';
 
         this.iconPath = comment.isResolved
             ? new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'))
@@ -152,7 +152,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
         // 2. Persisted (survived restart, no GitHub call needed)
         const persisted = this.storage.getCachedComments(pr.id);
         if (persisted) {
-            const items = persisted.map(c => new CommentItem(c));
+            const items = persisted.map(c => new CommentItem(c, !!this.storage.getSessionInfo(c.id)));
             this.commentCache.set(pr.id, items);
             return Promise.resolve(items);
         }
@@ -216,7 +216,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
                     newTitles[thread.id] = title;
                 }
 
-                return new CommentItem({
+                const commentData: CommentData = {
                     id: thread.id,
                     firstCommentId: c.id,
                     title,
@@ -229,7 +229,8 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
                     threadComments: thread.comments,
                     threadTooLong: thread.threadTooLong,
                     prNumber: pr.number,
-                });
+                };
+                return new CommentItem(commentData, !!this.storage.getSessionInfo(thread.id));
             })
         );
 

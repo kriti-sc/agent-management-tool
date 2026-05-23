@@ -92,4 +92,10 @@ export class Storage {
         const existing = this.state.get<Record<string, { sessionId: string; commentCount: number }>>(KEYS.SESSION_IDS, {});
         await this.state.update(KEYS.SESSION_IDS, { ...existing, [threadId]: { sessionId, commentCount } });
     }
+
+    async clearSessionInfo(threadId: string): Promise<void> {
+        const existing = this.state.get<Record<string, { sessionId: string; commentCount: number }>>(KEYS.SESSION_IDS, {});
+        const { [threadId]: _, ...rest } = existing;
+        await this.state.update(KEYS.SESSION_IDS, rest);
+    }
 }

@@ -66,6 +66,11 @@
         "command": "pr-browser.checkoutCommentBranch",
         "title": "Checkout Comment Branch",
         "icon": "$(git-branch)"
+      },
+      {
+        "command": "pr-browser.resetCommentSession",
+        "title": "Reset Claude Session",
+        "icon": "$(debug-restart)"
       }
     ],
     "menus": {
@@ -84,7 +89,12 @@
         },
         {
           "command": "pr-browser.checkoutCommentBranch",
-          "when": "view == prList && viewItem == comment",
+          "when": "view == prList && viewItem == comment || view == prList && viewItem == commentWithSession",
+          "group": "inline"
+        },
+        {
+          "command": "pr-browser.resetCommentSession",
+          "when": "view == prList && viewItem == commentWithSession",
           "group": "inline"
         },
         {

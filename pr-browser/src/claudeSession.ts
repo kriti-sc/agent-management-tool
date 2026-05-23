@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { CommentData, Storage } from './storage';
-import { fetchDiffHunk } from './githubApi';
 
-async function buildInitialPrompt(comment: CommentData, secrets: vscode.SecretStorage): Promise<string> {
+async function buildInitialPrompt(comment: CommentData): Promise<string> {
     const lines: string[] = [
         `I'm reviewing a pull request. Analyse this code review comment for me.`,
         ``,
@@ -14,24 +13,6 @@ async function buildInitialPrompt(comment: CommentData, secrets: vscode.SecretSt
         lines.push(``);
     }
 
-    const token = await secrets.get('pr-browser.githubToken');
-    if (token) {
-        try {
-            const diffHunk = await fetchDiffHunk(comment.firstCommentId, token);
-            if (diffHunk) {
-                const hunkLines = diffHunk.split('\n').filter(l => l.startsWith('+') || l.startsWith('-')).slice(0, 5);
-                if (hunkLines.length > 0) {
-                    lines.push(`**Diff:**`);
-                    lines.push('```diff');
-                    lines.push(hunkLines.join('\n'));
-                    lines.push('```');
-                    lines.push(``);
-                }
-            }
-        } catch (err: any) {
-            console.warn(`[pr-browser] could not fetch diff hunk: ${err.message}`);
-        }
-    }
 
     if (comment.threadComments.length <= 1) {
         lines.push(`**Reviewer says:**`);
@@ -83,46 +64,13 @@ function buildFollowUpPrompt(comment: CommentData, newComments: { author: string
     return lines.join('\n');
 }
 
-export async function openCommentSession(
+async function createNewSession(
     comment: CommentData,
     storage: Storage,
-    secrets: vscode.SecretStorage
+    cwd: string,
 ): Promise<void> {
-    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-    const sessionInfo = storage.getSessionInfo(comment.id);
-
-    // Existing session — check for new replies
-    if (sessionInfo) {
-        const { sessionId, commentCount } = sessionInfo;
-        const newComments = comment.threadComments.slice(commentCount);
-
-        if (newComments.length > 0) {
-            console.log(`[pr-browser] ${newComments.length} new reply(s) in thread ${comment.id}, sending follow-up`);
-            const followUpPrompt = buildFollowUpPrompt(comment, newComments);
-
-            // Fire follow-up in background, open session straight away
-            (async () => {
-                try {
-                    for await (const _ of query({ prompt: followUpPrompt, options: { resume: sessionId, cwd } })) {}
-                } catch (err: any) {
-                    console.error(`[pr-browser] follow-up error: ${err.message}`);
-                }
-            })();
-
-            await storage.setSessionInfo(comment.id, sessionId, comment.threadComments.length);
-        } else {
-            console.log(`[pr-browser] no new replies, reopening session ${sessionId}`);
-        }
-
-        await vscode.env.openExternal(
-            vscode.Uri.parse(`vscode://anthropic.claude-code/open?session=${encodeURIComponent(sessionId)}`)
-        );
-        return;
-    }
-
-    // No session yet — create one
     console.log(`[pr-browser] creating new Claude Code session for thread ${comment.id}`);
-    const prompt = await buildInitialPrompt(comment, secrets);
+    const prompt = await buildInitialPrompt(comment);
 
     let resolveSessionId!: (id: string) => void;
     let rejectSessionId!: (err: Error) => void;
@@ -133,7 +81,7 @@ export async function openCommentSession(
 
     (async () => {
         try {
-            for await (const msg of query({ prompt, options: { cwd, allowedTools: ['Read'] } })) {
+            for await (const msg of query({ prompt, options: { cwd, allowedTools: ['Read'], title: comment.title } })) {
                 if (msg.type === 'system' && msg.subtype === 'init') {
                     console.log(`[pr-browser] session created: ${msg.session_id}`);
                     resolveSessionId(msg.session_id);
@@ -162,4 +110,37 @@ export async function openCommentSession(
     await vscode.env.openExternal(
         vscode.Uri.parse(`vscode://anthropic.claude-code/open?session=${encodeURIComponent(sessionId)}`)
     );
+}
+
+export async function openCommentSession(
+    comment: CommentData,
+    storage: Storage,
+): Promise<void> {
+    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const sessionInfo = storage.getSessionInfo(comment.id);
+
+    if (sessionInfo) {
+        const { sessionId, commentCount } = sessionInfo;
+        const newComments = comment.threadComments.slice(commentCount);
+
+        if (newComments.length > 0) {
+            console.log(`[pr-browser] ${newComments.length} new reply(s) in thread ${comment.id}, sending follow-up`);
+            const followUpPrompt = buildFollowUpPrompt(comment, newComments);
+            try {
+                for await (const _ of query({ prompt: followUpPrompt, options: { resume: sessionId, cwd } })) {}
+                await storage.setSessionInfo(comment.id, sessionId, comment.threadComments.length);
+            } catch (err: unknown) {
+                console.error(`[pr-browser] follow-up error: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        } else {
+            console.log(`[pr-browser] no new replies, reopening session ${sessionId}`);
+        }
+
+        await vscode.env.openExternal(
+            vscode.Uri.parse(`vscode://anthropic.claude-code/open?session=${encodeURIComponent(sessionId)}`)
+        );
+        return;
+    }
+
+    await createNewSession(comment, storage, cwd);
 }

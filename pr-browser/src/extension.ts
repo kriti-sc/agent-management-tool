@@ -30,7 +30,12 @@ export function activate(context: vscode.ExtensionContext) {
         }),
 
         vscode.commands.registerCommand('pr-browser.openCommentSession', async (item: CommentItem) => {
-            await openCommentSession(item.comment, storage, context.secrets);
+            await openCommentSession(item.comment, storage);
+        }),
+
+        vscode.commands.registerCommand('pr-browser.resetCommentSession', async (item: CommentItem) => {
+            await storage.clearSessionInfo(item.comment.id);
+            await openCommentSession(item.comment, storage);
         }),
 
         vscode.commands.registerCommand('pr-browser.checkoutCommentBranch', async (item: CommentItem) => {
