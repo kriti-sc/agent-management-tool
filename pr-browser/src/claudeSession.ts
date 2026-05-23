@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { CommentData, Storage } from './storage';
 import { fetchDiffHunk } from './githubApi';
-import { slugify, createCommentBranch } from './gitUtils';
 
 async function buildInitialPrompt(comment: CommentData, secrets: vscode.SecretStorage): Promise<string> {
     const lines: string[] = [
@@ -11,7 +10,7 @@ async function buildInitialPrompt(comment: CommentData, secrets: vscode.SecretSt
     ];
 
     if (comment.path) {
-        lines.push(`**File:** \`${comment.path}${comment.line ? `:${comment.line}` : ''}\``);
+        lines.push(`**File:** \`${comment.path}${comment.line ? `:${comment.line}` : ''}\` (read this file for full context)`);
         lines.push(``);
     }
 
@@ -20,11 +19,14 @@ async function buildInitialPrompt(comment: CommentData, secrets: vscode.SecretSt
         try {
             const diffHunk = await fetchDiffHunk(comment.firstCommentId, token);
             if (diffHunk) {
-                lines.push(`**Code:**`);
-                lines.push('```diff');
-                lines.push(diffHunk);
-                lines.push('```');
-                lines.push(``);
+                const hunkLines = diffHunk.split('\n').filter(l => l.startsWith('+') || l.startsWith('-')).slice(0, 5);
+                if (hunkLines.length > 0) {
+                    lines.push(`**Diff:**`);
+                    lines.push('```diff');
+                    lines.push(hunkLines.join('\n'));
+                    lines.push('```');
+                    lines.push(``);
+                }
             }
         } catch (err: any) {
             console.warn(`[pr-browser] could not fetch diff hunk: ${err.message}`);
@@ -118,15 +120,6 @@ export async function openCommentSession(
         return;
     }
 
-    // Ensure a dedicated branch exists for this comment
-    const commentBranch = `pr-${comment.prNumber}/${slugify(comment.title)}`;
-    try {
-        await createCommentBranch(commentBranch, cwd);
-        console.log(`[pr-browser] checked out branch: ${commentBranch}`);
-    } catch (err: any) {
-        console.warn(`[pr-browser] could not create comment branch: ${err.message}`);
-    }
-
     // No session yet — create one
     console.log(`[pr-browser] creating new Claude Code session for thread ${comment.id}`);
     const prompt = await buildInitialPrompt(comment, secrets);
@@ -140,7 +133,7 @@ export async function openCommentSession(
 
     (async () => {
         try {
-            for await (const msg of query({ prompt, options: { cwd } })) {
+            for await (const msg of query({ prompt, options: { cwd, allowedTools: ['Read'] } })) {
                 if (msg.type === 'system' && msg.subtype === 'init') {
                     console.log(`[pr-browser] session created: ${msg.session_id}`);
                     resolveSessionId(msg.session_id);
