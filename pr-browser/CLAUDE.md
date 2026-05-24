@@ -21,6 +21,8 @@ A VS Code extension that displays GitHub PR review comment threads and opens a C
 
 **Three-tier comment cache in `PRProvider.loadComments`:** in-memory map → persisted `workspaceState` → GitHub API. The first two tiers avoid network calls on expand and across restarts.
 
+**Comments are collapsible; actions are clickable list rows.** `CommentItem` uses `TreeItemCollapsibleState.Collapsed`. Expanding it calls `buildCommentChildren`, which returns a `CommentDetailItem` for the file path (if present), followed by `CommentActionItem` rows — Open on GitHub, Open in Claude Code (unresolved only), Checkout Branch, Finalize Branch, and Reset Session (if a session exists). Each `CommentActionItem` fires its command directly via its `command` property when clicked. `CommentActionItem` is exported so `extension.ts` can type command handler arguments as `CommentItem | CommentActionItem`.
+
 **Title generation uses OpenAI, not Claude.** `gpt-4o-mini` is cheap and fast for a 5-word label. Titles are cached in `workspaceState` to avoid repeat API calls on refresh.
 
 **One Claude Code session per thread, persisted by thread ID.** `storage.ts` maps each `threadId → { sessionId, commentCount }`. The comment count is used to detect new replies since the last session open.
@@ -35,14 +37,14 @@ A VS Code extension that displays GitHub PR review comment threads and opens a C
 
 **Prompt differs for single vs. multi-comment threads.** Single comment: just the reviewer's text. Multi-comment: full thread with speakers labeled as "Reviewer" (first author) vs. `@username` (everyone else).
 
-**Resolved comments are inert.** `CommentItem` only attaches the `openCommentSession` command when `!comment.isResolved`. Clicking a resolved thread does nothing.
+**Resolved comments are inert for Claude.** The "Open in Claude Code" action item is only added to a comment's children when `!comment.isResolved`. Resolved comments can still be expanded to view details and open on GitHub or checkout a branch.
 
 **`inFlight` map prevents duplicate fetches.** While a GitHub API call is in-flight for a PR, subsequent `getChildren` calls for the same PR reuse the same promise.
 
-**Git branching flow (`gitUtils.ts`).** Two commands let the user jump to the relevant branch from the tree view:
-- `pr-browser.checkoutPRBranch` (on `PRItem`) — checks out the PR's head branch and pulls. Branch name is fetched via `fetchPRBranch` when the PR is added and stored on `PREntry.branch`.
-- `pr-browser.checkoutCommentBranch` (on `CommentItem`) — creates (or checks out) a branch named `pr-{prNumber}/{slugified-title}` for working on a specific comment.
-Both commands block if the working tree is dirty (`git status --porcelain`) and show an error message.
+**Git branching flow (`gitUtils.ts`).** Three commands implement the full branch workflow:
+- `pr-browser.checkoutPRBranch` (inline button on `PRItem`) — checks out the PR's head branch and pulls. Branch name is fetched via `fetchPRBranch` when the PR is added and stored on `PREntry.branch`. Blocks if dirty.
+- `pr-browser.checkoutCommentBranch` (action row on `CommentItem`) — creates (or checks out) a branch named `pr-{prNumber}/{slugified-title}`. Blocks if dirty.
+- `pr-browser.finalizeCommentBranch` (action row on `CommentItem`) — merges the comment branch back into the PR branch. If the working tree is dirty, runs `git commit -m "Address: <comment title>"` (staged changes only) before merging. Uses `prBranch` stored on `CommentData` (propagated from `PREntry.branch` at fetch time).
 
 **Open Comment in Browser button.** `pr-browser.openCommentInBrowser` opens `comment.url` in the default browser. It appears as an inline icon on both `comment` and `commentWithSession` context values.
 

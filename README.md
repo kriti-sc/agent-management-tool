@@ -6,4 +6,4 @@ A collection of extensions and tools for managing pull requests — both as a re
 
 ### [PR Browser](pr-browser/)
 
-A VS Code extension that surfaces GitHub PR review comment threads in the sidebar. Click any open thread to launch a dedicated Claude Code session that explains the reviewer's concern, assesses its impact, and helps you address it. Supports session resumption when new replies arrive, git branch checkout per PR or per comment, and a context store that learns from resolved threads over time.
+A VS Code extension that surfaces GitHub PR review comment threads in the sidebar. Expand any thread to see the author, file location, and comment preview, then use the inline action buttons to open the thread in Claude Code, view it on GitHub, check out a dedicated branch, or merge it back into the PR branch when done. Supports session resumption when new replies arrive and a context store that learns from resolved threads over time.

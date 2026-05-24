@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { PRItem, CommentItem, PRProvider } from './prProvider';
+import { PRItem, CommentItem, CommentActionItem, PRProvider } from './prProvider';
 import { Storage } from './storage';
 import { openCommentSession } from './claudeSession';
-import { isDirty, checkoutBranch, createCommentBranch, slugify } from './gitUtils';
+import { isDirty, checkoutBranch, createCommentBranch, commitAll, mergeCommentBranch, slugify } from './gitUtils';
 
 export function activate(context: vscode.ExtensionContext) {
     const storage = new Storage(context.workspaceState);
@@ -29,20 +29,41 @@ export function activate(context: vscode.ExtensionContext) {
             await prProvider.refreshPR(item.pr.id);
         }),
 
-        vscode.commands.registerCommand('pr-browser.openCommentSession', async (item: CommentItem) => {
+        vscode.commands.registerCommand('pr-browser.openCommentSession', async (item: CommentItem | CommentActionItem) => {
             await openCommentSession(item.comment, storage);
         }),
 
-        vscode.commands.registerCommand('pr-browser.resetCommentSession', async (item: CommentItem) => {
+        vscode.commands.registerCommand('pr-browser.resetCommentSession', async (item: CommentItem | CommentActionItem) => {
             await storage.clearSessionInfo(item.comment.id);
             await openCommentSession(item.comment, storage);
         }),
 
-        vscode.commands.registerCommand('pr-browser.openCommentInBrowser', (item: CommentItem) => {
+        vscode.commands.registerCommand('pr-browser.openCommentInBrowser', (item: CommentItem | CommentActionItem) => {
             vscode.env.openExternal(vscode.Uri.parse(item.comment.url));
         }),
 
-        vscode.commands.registerCommand('pr-browser.checkoutCommentBranch', async (item: CommentItem) => {
+        vscode.commands.registerCommand('pr-browser.finalizeCommentBranch', async (item: CommentItem | CommentActionItem) => {
+            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+            const commentBranch = `pr-${item.comment.prNumber}/${slugify(item.comment.title)}`;
+            const prBranch = item.comment.prBranch;
+
+            if (!prBranch) {
+                vscode.window.showErrorMessage('PR branch not available. Try removing and re-adding the PR.');
+                return;
+            }
+
+            try {
+                if (await isDirty(cwd)) {
+                    await commitAll(`Address: ${item.comment.title}`, cwd);
+                }
+                await mergeCommentBranch(commentBranch, prBranch, cwd);
+                vscode.window.showInformationMessage(`Merged ${commentBranch} into ${prBranch}.`);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`Merge failed: ${err.message}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('pr-browser.checkoutCommentBranch', async (item: CommentItem | CommentActionItem) => {
             const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
             const branch = `pr-${item.comment.prNumber}/${slugify(item.comment.title)}`;
 

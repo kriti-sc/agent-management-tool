@@ -9,13 +9,19 @@ PR Browser is a VS Code extension that surfaces GitHub pull request review comme
 ## High-level architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   VS Code sidebar                    │
-│                                                      │
-│  PRItem (owner/repo #N)                              │
-│    └── CommentItem (thread title)  ← click to open  │
-│    └── CommentItem (resolved)      ← inert           │
-└───────────────┬──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      VS Code sidebar                         │
+│                                                              │
+│  PRItem (owner/repo #N)  [🔀 checkout PR branch button]      │
+│    └── CommentItem (thread title)  ← click to expand        │
+│          ├── file/path.ts  :42                               │
+│          ├── Open on GitHub                                  │
+│          ├── Open in Claude Code    (unresolved only)        │
+│          ├── Checkout Branch                                 │
+│          ├── Finalize Branch                                 │
+│          └── Reset Session          (if session exists)      │
+│    └── CommentItem (resolved)  ← same, no Claude row         │
+└──────────────────────────────────────────────────────────────┘
                 │ commands
 ┌───────────────▼──────────────────────────────────────┐
 │                    extension.ts                      │
@@ -38,7 +44,8 @@ storage (VS Code workspaceState)
 2. User expands the PR → `prProvider.getChildren` triggers `fetchReviewThreads` (GitHub GraphQL)
 3. Titles are generated via OpenAI (or fallback) and cached
 4. Comment data is persisted to `workspaceState`
-5. User clicks a comment → `claudeSession.openCommentSession` creates a Claude Code session and opens it
+5. User expands a comment → detail and action rows are rendered inline
+6. User clicks "Open in Claude Code" → `claudeSession.openCommentSession` creates/resumes a Claude Code session
 
 ---
 
@@ -46,9 +53,13 @@ storage (VS Code workspaceState)
 
 ### `prProvider.ts` — tree view
 
-Implements VS Code's `TreeDataProvider`. The tree has two node types:
+Implements VS Code's `TreeDataProvider`. The tree has four node types:
 - `PRItem` — represents a tracked PR; `contextValue = 'pr'`
-- `CommentItem` — represents a review thread; `contextValue = 'comment'` or `'commentWithSession'`
+- `CommentItem` — represents a review thread; `contextValue = 'comment'` or `'commentWithSession'`; collapsible
+- `CommentDetailItem` — read-only info row (file path); `contextValue = 'commentDetail'`
+- `CommentActionItem` — clickable action row that fires a command on click; `contextValue = 'commentAction'`
+
+Clicking a `CommentItem` expands it to show its children. The children are built on demand by `buildCommentChildren` and never cached — they are cheap to reconstruct from the already-cached `CommentData`.
 
 Comment loading uses a three-tier cache to avoid redundant work:
 
@@ -132,18 +143,27 @@ If a session already exists for the thread:
 
 ### `gitUtils.ts` — branch management
 
-Provides two user-facing workflows:
+Provides three user-facing workflows that together form the comment branch lifecycle:
 
 **Checkout PR branch** (`checkoutPRBranch`):
+- Triggered by the inline `$(git-branch)` button on a `PRItem`
 - Branch name is stored on `PREntry.branch`, fetched from GitHub when the PR is added
 - Runs `git checkout <branch>` then `git pull`
+- Blocks if dirty
 
 **Checkout comment branch** (`checkoutCommentBranch`):
+- Triggered by the "Checkout Branch" action row on a `CommentItem`
 - Branch name is derived: `pr-{prNumber}/{slugify(title)}`
 - Attempts `git checkout -b <branch>`; if the branch already exists, falls back to `git checkout <branch>`
-- No pull — the branch is local working space, not a remote tracking branch
+- Blocks if dirty
 
-Both commands first run `git status --porcelain`. A non-empty result means the working tree is dirty and the checkout is blocked with an error message. This prevents accidental loss of in-progress work.
+**Finalize comment branch** (`finalizeCommentBranch`):
+- Triggered by the "Finalize Branch" action row on a `CommentItem`
+- If the working tree is dirty, runs `git commit -m "Address: <title>"` (staged changes only) before proceeding
+- Runs `git checkout <prBranch>` then `git merge <commentBranch>`
+- `prBranch` comes from `CommentData.prBranch`, which is propagated from `PREntry.branch` at comment-fetch time
+
+The branch naming convention (`pr-{number}/{slug}`) groups all comment branches for a PR under a common prefix in git log/branch listings, is human-readable, and avoids cross-PR collisions.
 
 ---
 
@@ -199,10 +219,15 @@ See `claudeSession.ts` section above. The key invariant: **one session per GitHu
 
 ## Feature: git branching
 
-See `gitUtils.ts` section above. The branch naming convention (`pr-{number}/{slug}`) is chosen to:
-- Group all comment branches for a PR under a common prefix in git log/branch listings
-- Be human-readable without being too long
-- Avoid collisions across PRs (prefix includes the PR number)
+The full intended workflow:
+
+1. **Add PR** → `fetchPRBranch` stores the head branch name on `PREntry`
+2. **Click `$(git-branch)` on PR row** → checkout PR branch + pull (blocks if dirty)
+3. **Click "Checkout Branch" on comment** → create/reuse `pr-{N}/{slug}` branch (blocks if dirty)
+4. Make code changes to address the comment
+5. **Click "Finalize Branch" on comment** → auto-commit if dirty, then merge comment branch into PR branch
+
+See `gitUtils.ts` section above for implementation details.
 
 ---
 

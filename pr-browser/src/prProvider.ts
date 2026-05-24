@@ -15,26 +15,40 @@ export class PRItem extends vscode.TreeItem {
 }
 
 export class CommentItem extends vscode.TreeItem {
-    constructor(public readonly comment: CommentData, hasSession = false) {
-        super(comment.title, vscode.TreeItemCollapsibleState.None);
+    constructor(public readonly comment: CommentData, public readonly hasSession = false) {
+        super(comment.title, vscode.TreeItemCollapsibleState.Collapsed);
         this.id = comment.id;
         this.description = comment.path
             ? `${comment.path}${comment.line ? `:${comment.line}` : ''}`
             : `@${comment.author}`;
-        this.tooltip = new vscode.MarkdownString(`**@${comment.author}**\n\n${comment.body}`);
         this.contextValue = hasSession ? 'commentWithSession' : 'comment';
 
         this.iconPath = comment.isResolved
             ? new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'))
             : new vscode.ThemeIcon('comment', new vscode.ThemeColor('list.warningForeground'));
+    }
+}
 
-        if (!comment.isResolved) {
-            this.command = {
-                command: 'pr-browser.openCommentSession',
-                title: 'Open in Claude Code',
-                arguments: [this],
-            };
-        }
+class CommentDetailItem extends vscode.TreeItem {
+    constructor(label: string, icon?: string, description?: string) {
+        super(label, vscode.TreeItemCollapsibleState.None);
+        if (icon) { this.iconPath = new vscode.ThemeIcon(icon); }
+        this.description = description;
+        this.contextValue = 'commentDetail';
+    }
+}
+
+export class CommentActionItem extends vscode.TreeItem {
+    constructor(
+        label: string,
+        icon: string,
+        commandId: string,
+        public readonly comment: CommentData,
+    ) {
+        super(label, vscode.TreeItemCollapsibleState.None);
+        this.iconPath = new vscode.ThemeIcon(icon);
+        this.contextValue = 'commentAction';
+        this.command = { command: commandId, title: label, arguments: [this] };
     }
 }
 
@@ -45,7 +59,7 @@ class MessageItem extends vscode.TreeItem {
     }
 }
 
-type TreeNode = PRItem | CommentItem | MessageItem;
+type TreeNode = PRItem | CommentItem | CommentDetailItem | CommentActionItem | MessageItem;
 
 export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
     private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined | null | void>();
@@ -141,7 +155,31 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
         if (element instanceof PRItem) {
             return this.loadComments(element.pr);
         }
+        if (element instanceof CommentItem) {
+            return this.buildCommentChildren(element);
+        }
         return [];
+    }
+
+    private buildCommentChildren(item: CommentItem): TreeNode[] {
+        const c = item.comment;
+        const children: TreeNode[] = [];
+
+        if (c.path) {
+            children.push(new CommentDetailItem(c.path, 'file-code', c.line ? `:${c.line}` : undefined));
+        }
+
+        children.push(new CommentActionItem('Open on GitHub', 'link-external', 'pr-browser.openCommentInBrowser', c));
+        if (!c.isResolved) {
+            children.push(new CommentActionItem('Open in Claude Code', 'hubot', 'pr-browser.openCommentSession', c));
+        }
+        children.push(new CommentActionItem('Checkout Branch', 'git-branch', 'pr-browser.checkoutCommentBranch', c));
+        children.push(new CommentActionItem('Finalize Branch', 'git-merge', 'pr-browser.finalizeCommentBranch', c));
+        if (item.hasSession) {
+            children.push(new CommentActionItem('Reset Session', 'debug-restart', 'pr-browser.resetCommentSession', c));
+        }
+
+        return children;
     }
 
     private loadComments(pr: PREntry): Promise<TreeNode[]> {
@@ -229,6 +267,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
                     threadComments: thread.comments,
                     threadTooLong: thread.threadTooLong,
                     prNumber: pr.number,
+                    prBranch: pr.branch,
                 };
                 return new CommentItem(commentData, !!this.storage.getSessionInfo(thread.id));
             })

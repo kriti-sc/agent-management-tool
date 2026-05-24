@@ -20,6 +20,15 @@ export async function checkoutBranch(branch: string, cwd: string): Promise<void>
     await execAsync('git pull', { cwd });
 }
 
+export async function commitAll(message: string, cwd: string): Promise<void> {
+    await execAsync(`git commit -m ${JSON.stringify(message)}`, { cwd });
+}
+
+export async function mergeCommentBranch(commentBranch: string, prBranch: string, cwd: string): Promise<void> {
+    await execAsync(`git checkout ${prBranch}`, { cwd });
+    await execAsync(`git merge ${commentBranch}`, { cwd });
+}
+
 export async function createCommentBranch(branch: string, cwd: string): Promise<void> {
     try {
         await execAsync(`git checkout -b ${branch}`, { cwd });

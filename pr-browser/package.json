@@ -68,6 +68,11 @@
         "icon": "$(git-branch)"
       },
       {
+        "command": "pr-browser.finalizeCommentBranch",
+        "title": "Finalize Comment Branch",
+        "icon": "$(git-merge)"
+      },
+      {
         "command": "pr-browser.resetCommentSession",
         "title": "Reset Claude Session",
         "icon": "$(debug-restart)"
@@ -90,21 +95,6 @@
         {
           "command": "pr-browser.checkoutPRBranch",
           "when": "view == prList && viewItem == pr",
-          "group": "inline"
-        },
-        {
-          "command": "pr-browser.openCommentInBrowser",
-          "when": "view == prList && viewItem == comment || view == prList && viewItem == commentWithSession",
-          "group": "inline"
-        },
-        {
-          "command": "pr-browser.checkoutCommentBranch",
-          "when": "view == prList && viewItem == comment || view == prList && viewItem == commentWithSession",
-          "group": "inline"
-        },
-        {
-          "command": "pr-browser.resetCommentSession",
-          "when": "view == prList && viewItem == commentWithSession",
           "group": "inline"
         },
         {

@@ -23,6 +23,7 @@ export interface CommentData {
     threadComments: { author: string; body: string }[];
     threadTooLong: boolean;
     prNumber: number;
+    prBranch: string;
 }
 
 const KEYS = {
