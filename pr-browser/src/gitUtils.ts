@@ -21,7 +21,7 @@ export async function checkoutBranch(branch: string, cwd: string): Promise<void>
 }
 
 export async function commitAll(message: string, cwd: string): Promise<void> {
-    await execAsync(`git commit -m ${JSON.stringify(message)}`, { cwd });
+    await execAsync(`git commit --no-verify -am ${JSON.stringify(message)}`, { cwd });
 }
 
 export async function mergeCommentBranch(commentBranch: string, prBranch: string, cwd: string): Promise<void> {

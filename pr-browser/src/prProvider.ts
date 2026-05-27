@@ -125,10 +125,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
     async refreshPR(id: string): Promise<void> {
         this.commentCache.delete(id);
         this.inFlight.delete(id);
-        await Promise.all([
-            this.storage.clearCachedComments(id),
-            this.storage.clearCachedTitles(id),
-        ]);
+        await this.storage.clearCachedComments(id);
         this._onDidChangeTreeData.fire();
     }
 
@@ -170,7 +167,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
         }
 
         children.push(new CommentActionItem('Open on GitHub', 'link-external', 'pr-browser.openCommentInBrowser', c));
-        if (!c.isResolved) {
+        if (!c.isResolved || item.hasSession) {
             children.push(new CommentActionItem('Open in Claude Code', 'hubot', 'pr-browser.openCommentSession', c));
         }
         children.push(new CommentActionItem('Checkout Branch', 'git-branch', 'pr-browser.checkoutCommentBranch', c));
@@ -190,7 +187,10 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode> {
         // 2. Persisted (survived restart, no GitHub call needed)
         const persisted = this.storage.getCachedComments(pr.id);
         if (persisted) {
-            const items = persisted.map(c => new CommentItem(c, !!this.storage.getSessionInfo(c.id)));
+            const items = persisted.map(c => new CommentItem(
+                { ...c, prNumber: c.prNumber ?? pr.number, prBranch: c.prBranch || pr.branch },
+                !!this.storage.getSessionInfo(c.id)
+            ));
             this.commentCache.set(pr.id, items);
             return Promise.resolve(items);
         }
